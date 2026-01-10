@@ -11,8 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { 
-  Mic, 
-  MicOff,
+  Mic,
   ArrowRight,
   Briefcase,
   GraduationCap,
@@ -98,8 +97,43 @@ const careerPreviews = [
 const CareerVisualization = () => {
   const [isListening, setIsListening] = useState(false);
   const [userName, setUserName] = useState("");
+  const [userProfession, setUserProfession] = useState("");
   const [ageCategory, setAgeCategory] = useState("");
   const [showCareers, setShowCareers] = useState(false);
+  const [inputCaptured, setInputCaptured] = useState(false);
+
+  const parseNameAndProfession = (transcript: string): { name: string; profession: string } => {
+    // Common patterns: "My name is X and I am a Y", "I am X, a Y", "X, profession Y"
+    const patterns = [
+      /my name is (.+?) and (?:i am|i'm) (?:a |an )?(.+)/i,
+      /(?:i am|i'm) (.+?) and (?:i am|i'm) (?:a |an )?(.+)/i,
+      /(.+?) (?:and )?(?:i am|i'm) (?:a |an )?(.+)/i,
+      /(.+?),?\s+(?:a |an )?(.+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = transcript.match(pattern);
+      if (match && match[1] && match[2]) {
+        return {
+          name: match[1].trim(),
+          profession: match[2].trim().replace(/\.$/, ""),
+        };
+      }
+    }
+
+    // If no pattern matches, try to split by common separators
+    const words = transcript.split(/\s+/);
+    if (words.length >= 2) {
+      // Assume first word(s) is name and rest is profession
+      const midPoint = Math.ceil(words.length / 2);
+      return {
+        name: words.slice(0, midPoint).join(" "),
+        profession: words.slice(midPoint).join(" "),
+      };
+    }
+
+    return { name: transcript, profession: "" };
+  };
 
   const handleVoiceInput = () => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
@@ -116,13 +150,22 @@ const CareerVisualization = () => {
 
     recognition.onstart = () => {
       setIsListening(true);
-      toast.info("Listening... Speak your name");
+      toast.info("Listening... Please speak your name and profession");
     };
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setUserName(transcript);
-      toast.success(`Hello, ${transcript}!`);
+      const { name, profession } = parseNameAndProfession(transcript);
+      
+      setUserName(name);
+      setUserProfession(profession);
+      setInputCaptured(true);
+      
+      if (profession) {
+        toast.success(`Hello ${name}! Your profession: ${profession}`);
+      } else {
+        toast.warning(`Got your name: ${name}. Please also mention your profession.`);
+      }
     };
 
     recognition.onerror = () => {
@@ -137,13 +180,21 @@ const CareerVisualization = () => {
     recognition.start();
   };
 
-  const handleExplore = () => {
-    if (!userName && !ageCategory) {
-      toast.error("Please enter your name and select age category");
+  const handleStartAssessment = () => {
+    if (!userName) {
+      toast.error("Please speak or enter your name");
+      return;
+    }
+    if (!userProfession) {
+      toast.error("Please speak or enter your profession");
+      return;
+    }
+    if (!ageCategory) {
+      toast.error("Please select your age category");
       return;
     }
     setShowCareers(true);
-    toast.success("Showing career paths for you!");
+    toast.success(`Starting assessment for ${userName} - ${userProfession}`);
   };
 
   return (
@@ -184,13 +235,29 @@ const CareerVisualization = () => {
         {/* Voice Input Section */}
         <div className="glass-card p-8 mb-12 max-w-2xl mx-auto animate-fadeIn" style={{ animationDelay: "0.1s" }}>
           <div className="text-center mb-8">
-            <p className="text-lg text-foreground mb-6">
-              {userName ? (
-                <>Welcome, <span className="neon-text font-display font-bold">{userName}</span>!</>
-              ) : (
-                "Enter your name or use voice input"
-              )}
-            </p>
+            {/* Main Prompt Message */}
+            <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
+              <p className="text-xl font-display font-semibold neon-text">
+                Please speak your name and profession
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Example: "My name is Rahul and I am a Software Developer"
+              </p>
+            </div>
+
+            {/* Captured Info Display */}
+            {inputCaptured && (
+              <div className="mb-6 p-4 rounded-xl bg-accent/10 border border-accent/30 text-left">
+                <p className="text-foreground">
+                  <span className="text-muted-foreground">Name:</span>{" "}
+                  <span className="font-semibold neon-text">{userName || "Not captured"}</span>
+                </p>
+                <p className="text-foreground mt-2">
+                  <span className="text-muted-foreground">Profession:</span>{" "}
+                  <span className="font-semibold neon-text-green">{userProfession || "Not captured"}</span>
+                </p>
+              </div>
+            )}
 
             {/* Voice Button */}
             <button
@@ -201,26 +268,37 @@ const CareerVisualization = () => {
               {isListening ? (
                 <Mic size={32} className="text-primary-foreground animate-pulse" />
               ) : (
-                <MicOff size={32} className="text-primary-foreground" />
+                <Mic size={32} className="text-primary-foreground" />
               )}
             </button>
 
             <p className="text-sm text-muted-foreground mt-4">
-              {isListening ? "Listening..." : "Click to speak your name"}
+              {isListening ? "Listening... Speak your name and profession" : "Click to speak"}
             </p>
           </div>
 
-          {/* Text Input Alternative */}
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <input
-              type="text"
-              placeholder="Or type your name here..."
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              className="flex-1 w-full h-12 px-4 rounded-lg bg-muted/30 border border-border/50 focus:border-primary focus:outline-none input-glow text-foreground"
-            />
+          {/* Manual Input Alternative */}
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground text-center">Or enter manually:</p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <input
+                type="text"
+                placeholder="Your name..."
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="flex-1 h-12 px-4 rounded-lg bg-muted/30 border border-border/50 focus:border-primary focus:outline-none input-glow text-foreground"
+              />
+              <input
+                type="text"
+                placeholder="Your profession..."
+                value={userProfession}
+                onChange={(e) => setUserProfession(e.target.value)}
+                className="flex-1 h-12 px-4 rounded-lg bg-muted/30 border border-border/50 focus:border-accent focus:outline-none input-glow text-foreground"
+              />
+            </div>
+            
             <Select value={ageCategory} onValueChange={setAgeCategory}>
-              <SelectTrigger className="w-full sm:w-64 h-12 bg-muted/30 border-border/50">
+              <SelectTrigger className="w-full h-12 bg-muted/30 border-border/50">
                 <SelectValue placeholder="Select age group" />
               </SelectTrigger>
               <SelectContent>
@@ -237,19 +315,32 @@ const CareerVisualization = () => {
             variant="neon"
             size="lg"
             className="w-full mt-6"
-            onClick={handleExplore}
+            onClick={handleStartAssessment}
+            disabled={!userName || !userProfession}
           >
             <Briefcase size={20} />
-            Explore Careers
+            Start Assessment
             <ArrowRight size={20} />
           </Button>
         </div>
 
-        {/* Career Cards Grid */}
+        {/* Assessment Section - Based on User's Profession */}
         {showCareers && (
           <div className="animate-fadeIn">
+            <div className="glass-card p-6 mb-8 text-center">
+              <h2 className="text-2xl font-display font-bold mb-2">
+                Assessment for <span className="neon-text">{userName}</span>
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                Profession: <span className="neon-text-green font-semibold">{userProfession}</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Age Category: {ageCategories.find(c => c.value === ageCategory)?.label}
+              </p>
+            </div>
+
             <h2 className="text-2xl font-display font-bold text-center mb-8">
-              <span className="neon-text-green">Recommended</span> Careers for You
+              Career paths related to <span className="neon-text-green">{userProfession}</span>
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
