@@ -9,24 +9,25 @@ import {
   ArrowLeft, 
   Mail, 
   Lock, 
-  User,
   Eye,
   EyeOff,
-  Loader2
+  Loader2,
+  Building,
+  Shield
 } from "lucide-react";
 import { toast } from "sonner";
 
+type LoginType = "institution" | "admin";
+
 const Auth = () => {
   const navigate = useNavigate();
-  const [isLogin, setIsLogin] = useState(true);
+  const [loginType, setLoginType] = useState<LoginType>("institution");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
     password: "",
-    confirmPassword: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,17 +41,18 @@ const Auth = () => {
       return;
     }
 
-    if (!isLogin && formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    toast.success(isLogin ? "Welcome back!" : "Account created successfully!");
-    navigate("/career-visualization");
+    if (loginType === "institution") {
+      toast.success("Institution login successful!");
+      navigate("/student-info");
+    } else {
+      toast.success("Admin login successful!");
+      // Admin can go to a different dashboard if needed
+      navigate("/student-info");
+    }
+    
     setLoading(false);
   };
 
@@ -76,51 +78,47 @@ const Auth = () => {
 
         {/* Auth Card */}
         <div className="glass-card p-8">
-          {/* Tabs */}
+          <h2 className="text-2xl font-display font-bold text-center mb-6">
+            Welcome Back
+          </h2>
+
+          {/* Login Type Tabs */}
           <div className="flex mb-8 p-1 rounded-lg bg-muted/30">
             <button
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                isLogin 
+              onClick={() => setLoginType("institution")}
+              className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                loginType === "institution" 
                   ? "bg-primary text-primary-foreground shadow-lg" 
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Login
+              <Building size={18} />
+              Institution
             </button>
             <button
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
-                !isLogin 
-                  ? "bg-primary text-primary-foreground shadow-lg" 
+              onClick={() => setLoginType("admin")}
+              className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                loginType === "admin" 
+                  ? "bg-accent text-accent-foreground shadow-lg" 
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Sign Up
+              <Shield size={18} />
+              Admin
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Name Field (Sign Up only) */}
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Full Name
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Enter your full name"
-                    className="pl-10 h-12 bg-muted/30 border-border/50 focus:border-primary input-glow"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
+          {/* Login Type Description */}
+          <div className="mb-6 p-3 rounded-lg bg-muted/20 border border-border/30">
+            <p className="text-sm text-muted-foreground text-center">
+              {loginType === "institution" 
+                ? "Login as an institution to manage student profiles and assessments"
+                : "Login as admin to access the administration dashboard"
+              }
+            </p>
+          </div>
 
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">
@@ -164,30 +162,10 @@ const Auth = () => {
               </div>
             </div>
 
-            {/* Confirm Password (Sign Up only) */}
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                  Confirm Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                  <Input
-                    id="confirmPassword"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    className="pl-10 h-12 bg-muted/30 border-border/50 focus:border-primary input-glow"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Submit Button */}
             <Button
               type="submit"
-              variant="neon"
+              variant={loginType === "institution" ? "neon" : "admin"}
               size="lg"
               className="w-full mt-6"
               disabled={loading}
@@ -195,27 +173,15 @@ const Auth = () => {
               {loading ? (
                 <>
                   <Loader2 className="animate-spin" size={20} />
-                  <span>{isLogin ? "Signing in..." : "Creating account..."}</span>
+                  <span>Signing in...</span>
                 </>
               ) : (
-                <span>{isLogin ? "Sign In" : "Create Account"}</span>
+                <span>
+                  {loginType === "institution" ? "Login as Institution" : "Login as Admin"}
+                </span>
               )}
             </Button>
           </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-border/50" />
-            <span className="text-xs text-muted-foreground">OR</span>
-            <div className="flex-1 h-px bg-border/50" />
-          </div>
-
-          {/* Institute Login Link */}
-          <Link to="/partition-login">
-            <Button variant="outline" className="w-full">
-              Login via Institute
-            </Button>
-          </Link>
         </div>
       </div>
     </div>

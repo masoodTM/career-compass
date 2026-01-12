@@ -21,7 +21,7 @@ import {
   Scale,
   Calculator,
   Building,
-  Home
+  ArrowLeft
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -103,7 +103,6 @@ const CareerVisualization = () => {
   const [inputCaptured, setInputCaptured] = useState(false);
 
   const parseNameAndProfession = (transcript: string): { name: string; profession: string } => {
-    // Common patterns: "My name is X and I am a Y", "I am X, a Y", "X, profession Y"
     const patterns = [
       /my name is (.+?) and (?:i am|i'm) (?:a |an )?(.+)/i,
       /(?:i am|i'm) (.+?) and (?:i am|i'm) (?:a |an )?(.+)/i,
@@ -121,10 +120,8 @@ const CareerVisualization = () => {
       }
     }
 
-    // If no pattern matches, try to split by common separators
     const words = transcript.split(/\s+/);
     if (words.length >= 2) {
-      // Assume first word(s) is name and rest is profession
       const midPoint = Math.ceil(words.length / 2);
       return {
         name: words.slice(0, midPoint).join(" "),
@@ -206,10 +203,10 @@ const CareerVisualization = () => {
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 lg:px-12">
         <Logo size="md" />
         <div className="flex items-center gap-4">
-          <Link to="/">
+          <Link to="/student-info">
             <Button variant="ghost" size="sm" className="gap-2">
-              <Home size={18} />
-              <span className="hidden sm:inline">Home</span>
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline">Back</span>
             </Button>
           </Link>
           <Link to="/personality-assessment">
