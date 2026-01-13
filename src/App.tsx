@@ -8,6 +8,10 @@ import Auth from "./pages/Auth";
 import StudentInfo from "./pages/StudentInfo";
 import CareerVisualization from "./pages/CareerVisualization";
 import PersonalityAssessment from "./pages/PersonalityAssessment";
+import PersonalityOnboarding from "./pages/PersonalityOnboarding";
+import PersonalityAvatar from "./pages/PersonalityAvatar";
+import PersonalityTest from "./pages/PersonalityTest";
+import PersonalityResults from "./pages/PersonalityResults";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +28,10 @@ const App = () => (
           <Route path="/student-info" element={<StudentInfo />} />
           <Route path="/career-visualization" element={<CareerVisualization />} />
           <Route path="/personality-assessment" element={<PersonalityAssessment />} />
+          <Route path="/personality-onboarding" element={<PersonalityOnboarding />} />
+          <Route path="/personality-avatar" element={<PersonalityAvatar />} />
+          <Route path="/personality-test" element={<PersonalityTest />} />
+          <Route path="/personality-results" element={<PersonalityResults />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
