@@ -41,19 +41,22 @@ const Auth = () => {
       return;
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-    if (loginType === "institution") {
-      toast.success("Institution login successful!");
-      navigate("/student-info");
-    } else {
-      toast.success("Admin login successful!");
-      // Admin can go to a different dashboard if needed
-      navigate("/student-info");
+      if (loginType === "institution") {
+        toast.success("Institution login successful!");
+      } else {
+        toast.success("Admin login successful!");
+      }
+      
+      // Navigate after showing toast - don't reset loading to prevent re-render interference
+      navigate("/student-info", { replace: true });
+    } catch (error) {
+      toast.error("Login failed. Please try again.");
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
