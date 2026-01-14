@@ -1,106 +1,37 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import ParticleBackground from "@/components/ParticleBackground";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { 
   Mic,
   ArrowRight,
-  Briefcase,
-  GraduationCap,
-  Stethoscope,
-  Code,
-  Palette,
-  Scale,
-  Calculator,
-  Building,
-  ArrowLeft
+  ArrowLeft,
+  Loader2,
+  CheckCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
-const ageCategories = [
-  { value: "10-14", label: "10-14 years (Middle School)" },
-  { value: "15-18", label: "15-18 years (High School)" },
-  { value: "19-24", label: "19-24 years (College/University)" },
-];
-
-const careerPreviews = [
-  {
-    id: 1,
-    title: "Software Engineer",
-    icon: Code,
-    color: "from-blue-500/20 to-cyan-500/20",
-    borderColor: "border-blue-500/30",
-    description: "Build innovative tech solutions",
-    salary: "₹6-25 LPA",
-    growth: "High",
-  },
-  {
-    id: 2,
-    title: "Doctor / Medical",
-    icon: Stethoscope,
-    color: "from-red-500/20 to-pink-500/20",
-    borderColor: "border-red-500/30",
-    description: "Heal and care for patients",
-    salary: "₹8-30 LPA",
-    growth: "Stable",
-  },
-  {
-    id: 3,
-    title: "IAS Officer",
-    icon: Building,
-    color: "from-amber-500/20 to-orange-500/20",
-    borderColor: "border-amber-500/30",
-    description: "Serve the nation in administration",
-    salary: "₹10-20 LPA",
-    growth: "Prestigious",
-  },
-  {
-    id: 4,
-    title: "Chartered Accountant",
-    icon: Calculator,
-    color: "from-green-500/20 to-emerald-500/20",
-    borderColor: "border-green-500/30",
-    description: "Master the world of finance",
-    salary: "₹7-25 LPA",
-    growth: "High",
-  },
-  {
-    id: 5,
-    title: "Lawyer / Advocate",
-    icon: Scale,
-    color: "from-purple-500/20 to-violet-500/20",
-    borderColor: "border-purple-500/30",
-    description: "Fight for justice",
-    salary: "₹5-30 LPA",
-    growth: "Growing",
-  },
-  {
-    id: 6,
-    title: "Creative Designer",
-    icon: Palette,
-    color: "from-pink-500/20 to-rose-500/20",
-    borderColor: "border-pink-500/30",
-    description: "Create visual experiences",
-    salary: "₹4-15 LPA",
-    growth: "Rising",
-  },
-];
-
 const CareerVisualization = () => {
+  const navigate = useNavigate();
   const [isListening, setIsListening] = useState(false);
   const [userName, setUserName] = useState("");
   const [userProfession, setUserProfession] = useState("");
-  const [ageCategory, setAgeCategory] = useState("");
-  const [showCareers, setShowCareers] = useState(false);
   const [inputCaptured, setInputCaptured] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [studentData, setStudentData] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if we have selected student data
+    const stored = sessionStorage.getItem("selectedStudents");
+    if (stored) {
+      const students = JSON.parse(stored);
+      if (students.length > 0) {
+        setStudentData(students[0]);
+        setUserName(students[0].name || "");
+      }
+    }
+  }, []);
 
   const parseNameAndProfession = (transcript: string): { name: string; profession: string } => {
     const patterns = [
@@ -177,7 +108,7 @@ const CareerVisualization = () => {
     recognition.start();
   };
 
-  const handleStartAssessment = () => {
+  const handleProceedToAssessment = () => {
     if (!userName) {
       toast.error("Please speak or enter your name");
       return;
@@ -186,12 +117,25 @@ const CareerVisualization = () => {
       toast.error("Please speak or enter your profession");
       return;
     }
-    if (!ageCategory) {
-      toast.error("Please select your age category");
-      return;
-    }
-    setShowCareers(true);
-    toast.success(`Starting assessment for ${userName} - ${userProfession}`);
+
+    setIsProcessing(true);
+
+    // Store the collected data for the personality test
+    const userData = {
+      name: userName,
+      aim: userProfession,
+      age: studentData?.age_group?.split("-")[0] || "16", // Extract age from age_group
+      studentId: studentData?.student_id || null,
+      photoUrl: studentData?.photo_url || null,
+    };
+
+    sessionStorage.setItem("personalityUserData", JSON.stringify(userData));
+
+    // Show processing state then navigate directly to 20 assessments
+    setTimeout(() => {
+      toast.success("Profile Complete → Starting 20 Assessments");
+      navigate("/personality-test");
+    }, 1500);
   };
 
   return (
@@ -202,35 +146,50 @@ const CareerVisualization = () => {
       {/* Navigation */}
       <nav className="relative z-10 flex items-center justify-between px-6 py-4 lg:px-12">
         <Logo size="md" />
-        <div className="flex items-center gap-4">
-          <Link to="/student-info">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft size={18} />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-          </Link>
-          <Link to="/personality-assessment">
-            <Button variant="outline" size="sm" className="gap-2">
-              <GraduationCap size={18} />
-              Take Assessment
-            </Button>
-          </Link>
-        </div>
+        <Link to="/student-info">
+          <Button variant="ghost" size="sm" className="gap-2">
+            <ArrowLeft size={18} />
+            <span className="hidden sm:inline">Back</span>
+          </Button>
+        </Link>
       </nav>
 
-      <main className="relative z-10 px-6 py-12 max-w-6xl mx-auto">
+      <main className="relative z-10 px-6 py-12 max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12 animate-fadeIn">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-display font-bold mb-4">
-            <span className="neon-text">Explore</span> Your Career Path
+            <span className="neon-text">Student</span> Profile Setup
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Tell us about yourself and discover careers that match your potential
+            Tell us about yourself to begin the 20-question assessment
           </p>
         </div>
 
+        {/* Student Info Card (if available) */}
+        {studentData && (
+          <div className="glass-card p-4 mb-8 flex items-center gap-4 animate-fadeIn">
+            {studentData.photo_url ? (
+              <img
+                src={studentData.photo_url}
+                alt={studentData.name}
+                className="w-16 h-16 rounded-xl object-cover border-2 border-primary/30"
+              />
+            ) : (
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center text-2xl">
+                👤
+              </div>
+            )}
+            <div>
+              <h3 className="font-semibold text-lg">{studentData.name}</h3>
+              <p className="text-sm text-muted-foreground">
+                {studentData.student_id} • Class {studentData.class}-{studentData.section}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Voice Input Section */}
-        <div className="glass-card p-8 mb-12 max-w-2xl mx-auto animate-fadeIn" style={{ animationDelay: "0.1s" }}>
+        <div className="glass-card p-8 animate-fadeIn" style={{ animationDelay: "0.1s" }}>
           <div className="text-center mb-8">
             {/* Main Prompt Message */}
             <div className="mb-6 p-4 rounded-xl bg-primary/10 border border-primary/30">
@@ -261,6 +220,7 @@ const CareerVisualization = () => {
               onClick={handleVoiceInput}
               className={`voice-button mx-auto ${isListening ? "listening" : ""}`}
               aria-label="Voice input"
+              disabled={isProcessing}
             >
               {isListening ? (
                 <Mic size={32} className="text-primary-foreground animate-pulse" />
@@ -284,6 +244,7 @@ const CareerVisualization = () => {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 className="flex-1 h-12 px-4 rounded-lg bg-muted/30 border border-border/50 focus:border-primary focus:outline-none input-glow text-foreground"
+                disabled={isProcessing}
               />
               <input
                 type="text"
@@ -291,95 +252,42 @@ const CareerVisualization = () => {
                 value={userProfession}
                 onChange={(e) => setUserProfession(e.target.value)}
                 className="flex-1 h-12 px-4 rounded-lg bg-muted/30 border border-border/50 focus:border-accent focus:outline-none input-glow text-foreground"
+                disabled={isProcessing}
               />
             </div>
-            
-            <Select value={ageCategory} onValueChange={setAgeCategory}>
-              <SelectTrigger className="w-full h-12 bg-muted/30 border-border/50">
-                <SelectValue placeholder="Select age group" />
-              </SelectTrigger>
-              <SelectContent>
-                {ageCategories.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
+          {/* Proceed Button - Goes directly to 20 Assessments */}
           <Button
-            variant="neon"
+            variant="hero"
             size="lg"
             className="w-full mt-6"
-            onClick={handleStartAssessment}
-            disabled={!userName || !userProfession}
+            onClick={handleProceedToAssessment}
+            disabled={!userName || !userProfession || isProcessing}
           >
-            <Briefcase size={20} />
-            Start Assessment
-            <ArrowRight size={20} />
+            {isProcessing ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                Profile Complete → Starting 20 Assessments
+              </>
+            ) : (
+              <>
+                <CheckCircle size={20} />
+                Start 20 Assessments
+                <ArrowRight size={20} />
+              </>
+            )}
           </Button>
         </div>
 
-        {/* Assessment Section - Based on User's Profession */}
-        {showCareers && (
-          <div className="animate-fadeIn">
-            <div className="glass-card p-6 mb-8 text-center">
-              <h2 className="text-2xl font-display font-bold mb-2">
-                Assessment for <span className="neon-text">{userName}</span>
-              </h2>
-              <p className="text-lg text-muted-foreground">
-                Profession: <span className="neon-text-green font-semibold">{userProfession}</span>
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Age Category: {ageCategories.find(c => c.value === ageCategory)?.label}
-              </p>
-            </div>
-
-            <h2 className="text-2xl font-display font-bold text-center mb-8">
-              Career paths related to <span className="neon-text-green">{userProfession}</span>
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {careerPreviews.map((career, index) => (
-                <div
-                  key={career.id}
-                  className="career-card group"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${career.color} opacity-50 rounded-xl`} />
-                  
-                  <div className="relative z-10">
-                    <div className={`inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br ${career.color} border ${career.borderColor} mb-4`}>
-                      <career.icon size={28} className="text-foreground" />
-                    </div>
-
-                    <h3 className="font-display font-semibold text-xl mb-2">
-                      {career.title}
-                    </h3>
-                    <p className="text-muted-foreground text-sm mb-4">
-                      {career.description}
-                    </p>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="badge-neon">{career.salary}</span>
-                      <span className="badge-success">{career.growth}</span>
-                    </div>
-
-                    <div className="mt-4 pt-4 border-t border-border/30">
-                      <Link to="/personality-assessment">
-                        <Button variant="ghost" size="sm" className="w-full gap-2 group-hover:text-primary">
-                          Take Assessment
-                          <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Flow Indicator */}
+        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <span className="px-3 py-1 rounded-full bg-primary/20 text-primary">1. Profile</span>
+          <ArrowRight size={16} />
+          <span className="px-3 py-1 rounded-full bg-muted/30">2. 20 Questions</span>
+          <ArrowRight size={16} />
+          <span className="px-3 py-1 rounded-full bg-muted/30">3. Results</span>
+        </div>
       </main>
     </div>
   );

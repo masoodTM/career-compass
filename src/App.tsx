@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import StudentInfo from "./pages/StudentInfo";
+import BulkUploadPreview from "./pages/BulkUploadPreview";
 import CareerVisualization from "./pages/CareerVisualization";
 import PersonalityAssessment from "./pages/PersonalityAssessment";
 import PersonalityOnboarding from "./pages/PersonalityOnboarding";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/" element={<Welcome />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/student-info" element={<StudentInfo />} />
+          <Route path="/bulk-upload-preview" element={<BulkUploadPreview />} />
           <Route path="/career-visualization" element={<CareerVisualization />} />
           <Route path="/personality-assessment" element={<PersonalityAssessment />} />
           <Route path="/personality-onboarding" element={<PersonalityOnboarding />} />
