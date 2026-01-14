@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,17 +22,25 @@ import {
   Mail,
   User,
   GraduationCap,
-  Trash2
+  Trash2,
+  FileSpreadsheet,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import CameraCapture from "@/components/CameraCapture";
+import ExcelUploadModal, { ParsedStudent } from "@/components/ExcelUploadModal";
 
 interface Student {
   id: string;
+  student_id: string;
   name: string;
   email: string;
-  phone: string;
+  phone: string | null;
   class: string;
   section: string;
+  age_group: string | null;
+  photo_url: string | null;
 }
 
 const generateStudentId = (classLevel: string, section: string, index: number): string => {
@@ -43,10 +51,13 @@ const generateStudentId = (classLevel: string, section: string, index: number): 
 
 const StudentInfo = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"add" | "view">("add");
+  const [activeTab, setActiveTab] = useState<"add" | "view">("view");
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<string>("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [studentPhoto, setStudentPhoto] = useState<string>("");
   
   const [formData, setFormData] = useState({
     name: "",
@@ -55,6 +66,54 @@ const StudentInfo = () => {
     class: "",
     section: "",
   });
+
+  // Fetch students from database
+  const fetchStudents = async () => {
+    setIsRefreshing(true);
+    try {
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setStudents(data || []);
+    } catch (error: any) {
+      console.error("Fetch error:", error);
+      toast.error("Failed to load students");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const uploadPhoto = async (photoData: string, studentId: string): Promise<string | null> => {
+    try {
+      // Convert base64 to blob
+      const res = await fetch(photoData);
+      const blob = await res.blob();
+      
+      const fileName = `${studentId}_${Date.now()}.jpg`;
+      
+      const { error } = await supabase.storage
+        .from("student-photos")
+        .upload(fileName, blob, { contentType: "image/jpeg" });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage
+        .from("student-photos")
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Photo upload error:", error);
+      return null;
+    }
+  };
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,27 +125,50 @@ const StudentInfo = () => {
       return;
     }
 
-    await new Promise(resolve => setTimeout(resolve, 800));
+    try {
+      const studentId = generateStudentId(formData.class, formData.section, students.length + 1);
+      
+      let photoUrl: string | null = null;
+      if (studentPhoto) {
+        photoUrl = await uploadPhoto(studentPhoto, studentId);
+      }
 
-    const newStudent: Student = {
-      id: generateStudentId(formData.class, formData.section, students.length + 1),
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      class: formData.class,
-      section: formData.section,
-    };
+      const { error } = await supabase.from("students").insert({
+        student_id: studentId,
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || null,
+        class: formData.class,
+        section: formData.section,
+        photo_url: photoUrl,
+      });
 
-    setStudents([...students, newStudent]);
-    setFormData({ name: "", email: "", phone: "", class: "", section: "" });
-    toast.success(`Student added with ID: ${newStudent.id}`);
-    setLoading(false);
+      if (error) throw error;
+
+      toast.success(`Student added with ID: ${studentId}`);
+      setFormData({ name: "", email: "", phone: "", class: "", section: "" });
+      setStudentPhoto("");
+      fetchStudents();
+      setActiveTab("view");
+    } catch (error: any) {
+      console.error("Add error:", error);
+      toast.error(error.message || "Failed to add student");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDeleteStudent = (id: string) => {
-    setStudents(students.filter(s => s.id !== id));
-    if (selectedStudent === id) setSelectedStudent("");
-    toast.success("Student removed");
+  const handleDeleteStudent = async (id: string) => {
+    try {
+      const { error } = await supabase.from("students").delete().eq("id", id);
+      if (error) throw error;
+      
+      setStudents(students.filter(s => s.id !== id));
+      if (selectedStudent === id) setSelectedStudent("");
+      toast.success("Student removed");
+    } catch (error: any) {
+      toast.error("Failed to delete student");
+    }
   };
 
   const handleProceed = () => {
@@ -95,8 +177,16 @@ const StudentInfo = () => {
       return;
     }
     const student = students.find(s => s.id === selectedStudent);
-    toast.success(`Proceeding with ${student?.name}`);
-    navigate("/career-visualization");
+    if (student) {
+      sessionStorage.setItem("selectedStudents", JSON.stringify([student]));
+      toast.success(`Proceeding with ${student.name}`);
+      navigate("/career-visualization");
+    }
+  };
+
+  const handleBulkImport = (parsedStudents: ParsedStudent[]) => {
+    toast.success(`${parsedStudents.length} students parsed! Review and save.`);
+    navigate("/bulk-upload-preview", { state: { students: parsedStudents } });
   };
 
   return (
@@ -115,15 +205,37 @@ const StudentInfo = () => {
         </Link>
       </nav>
 
-      <main className="relative z-10 px-6 py-8 max-w-4xl mx-auto">
+      <main className="relative z-10 px-6 py-8 max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10 animate-fadeIn">
           <h1 className="text-3xl sm:text-4xl font-display font-bold mb-4">
             <span className="neon-text">Student</span> Management
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Add new students or select an existing student to proceed with career assessment
+            Add students individually or bulk upload via Excel/CSV for Class 10C assessments
           </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-fadeIn" style={{ animationDelay: "0.05s" }}>
+          <Button
+            variant="neon"
+            size="lg"
+            onClick={() => setShowUploadModal(true)}
+            className="gap-2"
+          >
+            <FileSpreadsheet size={20} />
+            📥 Upload Excel/CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => setActiveTab("add")}
+            className="gap-2 border-primary/30 hover:border-primary"
+          >
+            <UserPlus size={20} />
+            ➕ Add Single Student
+          </Button>
         </div>
 
         {/* Tabs */}
@@ -204,6 +316,15 @@ const StudentInfo = () => {
                 </div>
               </div>
 
+              {/* Camera Capture Section */}
+              <div className="space-y-2">
+                <Label>Student Photo</Label>
+                <CameraCapture 
+                  onCapture={setStudentPhoto} 
+                  currentPhoto={studentPhoto}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Class *</Label>
@@ -226,7 +347,7 @@ const StudentInfo = () => {
                       <SelectValue placeholder="Select section" />
                     </SelectTrigger>
                     <SelectContent>
-                      {["A", "B", "C", "D", "E"].map((s) => (
+                      {["A", "B", "C", "D", "E", "K"].map((s) => (
                         <SelectItem key={s} value={s}>Section {s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -260,17 +381,37 @@ const StudentInfo = () => {
         {/* View Students List */}
         {activeTab === "view" && (
           <div className="animate-fadeIn">
+            {/* Refresh Button */}
+            <div className="flex justify-end mb-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchStudents}
+                disabled={isRefreshing}
+                className="gap-2"
+              >
+                <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+                Refresh
+              </Button>
+            </div>
+
             {students.length === 0 ? (
               <div className="glass-card p-12 text-center">
                 <GraduationCap size={48} className="mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">No Students Added</h3>
                 <p className="text-muted-foreground mb-6">
-                  Add students first to view them here
+                  Upload an Excel/CSV file or add students individually
                 </p>
-                <Button variant="neon" onClick={() => setActiveTab("add")}>
-                  <UserPlus size={18} />
-                  Add First Student
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button variant="neon" onClick={() => setShowUploadModal(true)}>
+                    <FileSpreadsheet size={18} className="mr-2" />
+                    Upload Excel/CSV
+                  </Button>
+                  <Button variant="outline" onClick={() => setActiveTab("add")}>
+                    <UserPlus size={18} className="mr-2" />
+                    Add Single Student
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
@@ -287,9 +428,17 @@ const StudentInfo = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
-                            <User size={24} className="text-primary" />
-                          </div>
+                          {student.photo_url ? (
+                            <img
+                              src={student.photo_url}
+                              alt={student.name}
+                              className="w-12 h-12 rounded-xl object-cover border border-primary/30"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/30 flex items-center justify-center">
+                              <User size={24} className="text-primary" />
+                            </div>
+                          )}
                           <div>
                             <h3 className="font-semibold">{student.name}</h3>
                             <p className="text-sm text-muted-foreground">{student.email}</p>
@@ -297,7 +446,7 @@ const StudentInfo = () => {
                         </div>
                         <div className="flex items-center gap-4">
                           <div className="text-right">
-                            <span className="badge-neon text-xs">{student.id}</span>
+                            <span className="badge-neon text-xs">{student.student_id}</span>
                             <p className="text-xs text-muted-foreground mt-1">
                               Class {student.class} - {student.section}
                             </p>
@@ -341,6 +490,13 @@ const StudentInfo = () => {
           </div>
         )}
       </main>
+
+      {/* Excel Upload Modal */}
+      <ExcelUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onImport={handleBulkImport}
+      />
     </div>
   );
 };
