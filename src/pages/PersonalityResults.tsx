@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
 import ParticleBackground from "@/components/ParticleBackground";
-import { Home, RefreshCw, CheckCircle, TrendingUp, AlertCircle, Lightbulb, MapPin, Quote } from "lucide-react";
+import { Home, RefreshCw, CheckCircle, TrendingUp, AlertCircle, Lightbulb, MapPin, Quote, Download } from "lucide-react";
 import { traitProfiles, getMotivationalQuote } from "@/data/personalityQuestions";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 interface UserData {
   name: string;
@@ -19,6 +21,44 @@ interface Results {
   totalScore: number;
   overallPercentage: number;
 }
+
+// Profession image mapping - returns image path based on profession
+const getProfessionImage = (aim: string): string => {
+  const normalizedAim = aim.toLowerCase();
+  
+  if (normalizedAim.includes("pilot") || normalizedAim.includes("aviation")) {
+    return "/profession-images/pilot.png";
+  }
+  if (normalizedAim.includes("doctor") || normalizedAim.includes("medical") || normalizedAim.includes("surgeon")) {
+    return "/profession-images/doctor.png";
+  }
+  if (normalizedAim.includes("engineer") || normalizedAim.includes("engineering")) {
+    return "/profession-images/engineer.png";
+  }
+  if (normalizedAim.includes("teacher") || normalizedAim.includes("professor")) {
+    return "/profession-images/teacher.png";
+  }
+  if (normalizedAim.includes("lawyer") || normalizedAim.includes("advocate")) {
+    return "/profession-images/lawyer.png";
+  }
+  if (normalizedAim.includes("scientist") || normalizedAim.includes("researcher")) {
+    return "/profession-images/scientist.png";
+  }
+  if (normalizedAim.includes("artist") || normalizedAim.includes("designer")) {
+    return "/profession-images/artist.png";
+  }
+  if (normalizedAim.includes("business") || normalizedAim.includes("entrepreneur")) {
+    return "/profession-images/business.png";
+  }
+  if (normalizedAim.includes("police") || normalizedAim.includes("ips") || normalizedAim.includes("ias")) {
+    return "/profession-images/police.png";
+  }
+  if (normalizedAim.includes("programmer") || normalizedAim.includes("developer") || normalizedAim.includes("software")) {
+    return "/profession-images/programmer.png";
+  }
+  
+  return "/profession-images/default.png";
+};
 
 // Avatar mapping (same as PersonalityAvatar)
 const getAvatarForProfession = (aim: string): { emoji: string; color: string } => {
@@ -132,6 +172,8 @@ const PersonalityResults = () => {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [results, setResults] = useState<Results | null>(null);
   const [quote, setQuote] = useState("");
+  const [isDownloading, setIsDownloading] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedUser = sessionStorage.getItem("personalityUserData");
@@ -153,6 +195,7 @@ const PersonalityResults = () => {
   if (!userData || !results) return null;
 
   const avatar = getAvatarForProfession(userData.aim);
+  const professionImage = getProfessionImage(userData.aim);
   const traitProfile = traitProfiles[results.dominantTrait] || traitProfiles["Analytical"];
   const roadmap = getRoadmap(userData.aim);
 
@@ -160,6 +203,49 @@ const PersonalityResults = () => {
     sessionStorage.removeItem("personalityUserData");
     sessionStorage.removeItem("personalityResults");
     navigate("/personality-assessment");
+  };
+
+  const handleDownloadProfile = async () => {
+    if (!profileRef.current) return;
+    
+    setIsDownloading(true);
+    try {
+      const canvas = await html2canvas(profileRef.current, {
+        scale: 2,
+        backgroundColor: '#0a0a0f',
+        useCORS: true,
+        allowTaint: true,
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      pdf.save(`${userData.name.replace(/\s+/g, '_')}_Career_Profile.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -179,7 +265,7 @@ const PersonalityResults = () => {
       </nav>
 
       <main className="relative z-10 px-6 py-8 max-w-4xl mx-auto">
-        <div className="animate-fadeIn">
+        <div ref={profileRef} className="animate-fadeIn">
           {/* Step Indicator */}
           <div className="flex justify-center gap-2 mb-8">
             <div className="w-10 h-2 rounded-full bg-primary" />
@@ -188,22 +274,28 @@ const PersonalityResults = () => {
             <div className="w-10 h-2 rounded-full bg-secondary" />
           </div>
 
-          {/* Summary Header */}
+          {/* Summary Header with Profession Image */}
           <div className="glass-card p-8 text-center mb-8">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-              {/* Avatar */}
-              <div className={`w-32 h-32 rounded-full bg-gradient-to-br ${avatar.color} flex items-center justify-center flex-shrink-0`}>
-                <span className="text-6xl">{avatar.emoji}</span>
+            <div className="flex flex-col items-center gap-6">
+              {/* Profession Image */}
+              <div className="relative w-48 h-48 md:w-56 md:h-56 rounded-2xl overflow-hidden neon-border">
+                <img 
+                  src={professionImage} 
+                  alt={`${userData.aim} profession`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.src = '/placeholder.svg';
+                  }}
+                />
+                <div className={`absolute inset-0 bg-gradient-to-t ${avatar.color} opacity-20`} />
               </div>
               
-              {/* Summary Text */}
-              <div className="text-left">
-                <h1 className="text-2xl lg:text-3xl font-display font-bold mb-4">
-                  I am <span className="neon-text">{userData.name}</span>, I am{" "}
-                  <span className="text-secondary">{userData.age}</span> years old, and I want to become a{" "}
-                  <span className="neon-text-green">{userData.aim}</span>
-                </h1>
-              </div>
+              {/* Summary Sentence */}
+              <h1 className="text-2xl lg:text-3xl font-display font-bold">
+                I am <span className="neon-text">{userData.name}</span> and I want to become a{" "}
+                <span className="neon-text-green">{userData.aim}</span>
+              </h1>
             </div>
           </div>
 
@@ -368,6 +460,15 @@ const PersonalityResults = () => {
                 Explore More Careers
               </Button>
             </Link>
+            <Button 
+              variant="outline" 
+              onClick={handleDownloadProfile} 
+              disabled={isDownloading}
+              className="gap-2"
+            >
+              <Download size={18} />
+              {isDownloading ? 'Generating PDF...' : 'Download My Profile'}
+            </Button>
             <Button variant="neon" onClick={handleTakeAgain} className="gap-2">
               <RefreshCw size={18} />
               Take Assessment Again
